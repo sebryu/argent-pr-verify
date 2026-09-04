@@ -117,6 +117,7 @@ jobs:
       STATE: ${{ matrix.state }}
       SHA: ${{ matrix.state == 'before' && needs.resolve.outputs.before || needs.resolve.outputs.after }}
       TARGET_REPO: ${{ needs.resolve.outputs.repo }}
+      PR_NUMBER: ${{ needs.resolve.outputs.number }}
       EXAMPLE_DIR: ${{ inputs.example_dir }}
     steps:
       - name: Checkout tools (skill + scripts)
@@ -145,7 +146,8 @@ jobs:
       - name: Check out target repository at ${{ matrix.state }} commit
         run: |
           git clone --quiet --no-checkout "https://github.com/$TARGET_REPO.git" target
-          git -C target fetch --quiet --depth 1 origin "$SHA"
+          git -C target fetch --quiet --depth 1 origin "$SHA" \
+            || git -C target fetch --quiet origin "refs/pull/$PR_NUMBER/head"
           git -C target checkout --quiet --detach "$SHA"
           if [ -f "$EXAMPLE_DIR/repro.patch" ]; then
             git -C target apply --check "$GITHUB_WORKSPACE/$EXAMPLE_DIR/repro.patch"
@@ -199,8 +201,8 @@ jobs:
             --model "$MODEL" \
             --mcp-config "$RUNNER_TEMP/mcp.json" --strict-mcp-config \
             --allowedTools "Skill,Read,Write,Edit,Bash,Glob,Grep,mcp__argent" \
-            --dangerously-skip-permissions \
-            --max-turns 120 \
+            --dangerously-skip-permissions --permission-prompts none \
+            --max-turns 120 --max-budget-usd 5 \
             --output-format json --verbose \
             | tee "$OUT/$STATE/claude-output.json" | jq -r 'select(.type=="result") | "turns=\(.num_turns) cost_usd=\(.total_cost_usd) is_error=\(.is_error)\n\(.result // "")"' || true
           test -f "$OUT/$STATE/report.json" || { echo "state agent did not write report.json" >&2; exit 1; }
