@@ -81,8 +81,9 @@ the job summary, fail if the verdict is not FIX VERIFIED).
 
 ## Milestones
 
-1. Target chosen, TARGET.md written.
-2. Skill + scripts drafted; reviewed by sonnet.
-3. Local before/after run passes with recordings under `.pr-verify/`.
-4. Workflow pushed; caller dispatched from `claude-session-share`; green run with
-   before/after recordings in artifacts.
+1. ✅ Target chosen (react-native-bottom-tabs#524), TARGET.md written — 2026-09-05.
+2. ✅ Skill + scripts drafted; sonnet review in progress.
+3. ✅ Local before/after run: FIX VERIFIED (before=bug_present, after=bug_absent);
+   evidence archived in `examples/callstack-react-native-bottom-tabs-pr-524/local-run-2026-09-05/`.
+4. ⏳ Workflow pushed; caller dispatched from `claude-session-share`
+   (`.github/workflows/argent-pr-verify.yml`); waiting for a green run.
