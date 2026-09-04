@@ -52,8 +52,21 @@ if [[ ! -d "$EXAMPLE_DIR" ]]; then
   exit 1
 fi
 
+# The repo pins yarn 4 via package.json#packageManager; CI runners ship yarn 1 globally.
+if ! (cd "$REPO_ROOT" && yarn --version 2>/dev/null | grep -q '^4\.'); then
+  log "==> enabling corepack so the pinned yarn 4 is used"
+  corepack enable >&2 || true
+  (cd "$REPO_ROOT" && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 yarn --version) >&2
+fi
+
+# The example Podfile loads the cocoapods-swift-modular-headers plugin (see the repo's ci.yml).
+if grep -q "cocoapods-swift-modular-headers" "$IOS_DIR/Podfile" && ! gem list -i cocoapods-swift-modular-headers >/dev/null 2>&1; then
+  log "==> installing cocoapods-swift-modular-headers gem"
+  gem install cocoapods-swift-modular-headers >&2 || sudo gem install cocoapods-swift-modular-headers >&2
+fi
+
 log "==> [1/6] yarn install (repo root: $REPO_ROOT)"
-( cd "$REPO_ROOT" && yarn install ) >&2
+( cd "$REPO_ROOT" && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 yarn install ) >&2
 
 log "==> [2/6] yarn build (turbo build of lib packages)"
 ( cd "$REPO_ROOT" && yarn build ) >&2
