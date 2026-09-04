@@ -42,9 +42,12 @@ for pair in "before:$BEFORE" "after:$AFTER"; do
   git -C "$BASE_CLONE" worktree add --quiet --detach "$dir" "$sha"
   echo "worktree state=$state sha=$sha dir=$dir" >&2
   if [ -n "$PATCH" ]; then
-    if git -C "$dir" apply --check "$PATCH"; then
+    if git -C "$dir" apply --check "$PATCH" 2>/dev/null; then
       git -C "$dir" apply "$PATCH"
       echo "patch applied state=$state patch=$PATCH" >&2
+    elif git -C "$dir" apply --check --reverse "$PATCH" 2>/dev/null; then
+      # The PR itself contains the repro (typical for the after state).
+      echo "patch already present state=$state (skipped)" >&2
     else
       echo "error: repro patch does not apply cleanly to state=$state sha=$sha" >&2
       exit 1

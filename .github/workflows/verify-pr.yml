@@ -149,10 +149,15 @@ jobs:
           git -C target fetch --quiet --depth 1 origin "$SHA" \
             || git -C target fetch --quiet origin "refs/pull/$PR_NUMBER/head"
           git -C target checkout --quiet --detach "$SHA"
-          if [ -f "$EXAMPLE_DIR/repro.patch" ]; then
-            git -C target apply --check "$GITHUB_WORKSPACE/$EXAMPLE_DIR/repro.patch"
-            git -C target apply "$GITHUB_WORKSPACE/$EXAMPLE_DIR/repro.patch"
-            echo "applied repro patch"
+          PATCH="$GITHUB_WORKSPACE/$EXAMPLE_DIR/repro.patch"
+          if [ -f "$PATCH" ]; then
+            if git -C target apply --check "$PATCH" 2>/dev/null; then
+              git -C target apply "$PATCH" && echo "applied repro patch"
+            elif git -C target apply --check --reverse "$PATCH" 2>/dev/null; then
+              echo "repro patch already present in this commit (skipped)"
+            else
+              echo "repro patch does not apply to $SHA" >&2; exit 1
+            fi
           fi
           git -C target log -1 --oneline
 
