@@ -66,8 +66,10 @@ Choosing the repro:
 "$ROOT/scripts/prepare-worktrees.sh" "https://github.com/<repo>.git" "$(jq -r .before $OUT/pr.json)" "$(jq -r .after $OUT/pr.json)" "$OUT" [--patch $OUT/repro.patch]
 ```
 
-This produces `$OUT/before/src` and `$OUT/after/src` (one clone, two worktrees), applies
-the patch to both, and fails loudly if it does not apply to either.
+This produces `$OUT/before/src` and `$OUT/after/src` (one clone, two worktrees) and applies
+the patch to both. When a commit already contains the patch (the after state, if the patch
+was cut from the PR itself) it is skipped; any other conflict fails loudly. Pass
+`--pr <n>` so PR heads that live in forks can be fetched.
 
 ### 4. Dedicated simulators
 
