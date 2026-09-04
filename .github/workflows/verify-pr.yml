@@ -275,7 +275,8 @@ jobs:
           mv out/evidence-before/* out/before/ 2>/dev/null || true
           mv out/evidence-after/* out/after/ 2>/dev/null || true
           for s in before after; do
-            [ -f out/$s/report.json ] || jq -n --arg s "$s" '{state:$s,sha:"",app:{},verdict:"inconclusive",confidence:0,summary:"state agent produced no report (job failed)",steps:[],evidence:{recording:"",screenshots:[],extra:[]}}' > out/$s/report.json
+            [ -f "out/$s/report.json" ] || jq -n --arg s "$s" '{state:$s,sha:"",app:{},verdict:"inconclusive",confidence:0,summary:"state agent produced no report (job failed)",steps:[],evidence:{recording:"",screenshots:[],extra:[]}}' > "out/$s/report.json"
+            scripts/normalize-report.sh "out/$s/report.json" "$s" "$(jq -r ".$s" out/pr.json)"
           done
           set +e
           scripts/compose-report.sh out --pr-json out/pr.json
