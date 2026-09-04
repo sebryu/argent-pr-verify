@@ -1,0 +1,342 @@
+diff --git a/apps/example/src/App.tsx b/apps/example/src/App.tsx
+index d789517..af5f1d0 100644
+--- a/apps/example/src/App.tsx
++++ b/apps/example/src/App.tsx
+@@ -38,6 +38,9 @@ import NativeBottomTabsFreezeOnBlur from './Examples/NativeBottomTabsFreezeOnBlu
+ import NativeBottomTabsScreenLayout from './Examples/NativeBottomTabsScreenLayout';
+ import NativeBottomTabsLazy from './Examples/NativeBottomTabsLazy';
+ import BottomAccessoryView from './Examples/BottomAccessoryView';
++import TabBarHidden from './Examples/TabBarHidden';
++import CustomTabBar from './Examples/CustomTabBar';
++import NativeBottomTabsTabBarHidden from './Examples/NativeBottomTabsTabBarHidden';
+ import { useLogger } from '@react-navigation/devtools';
+ import LazyTabs from './Examples/LazyTabs';
+ import { LogBox } from 'react-native';
+@@ -103,6 +106,14 @@ const examples = [
+     screenOptions: { headerShown: false },
+   },
+   { component: LazyTabs, name: 'Lazy Tabs' },
++  {
++    component: TabBarHidden,
++    name: 'Tab Bar Hidden',
++  },
++  {
++    component: CustomTabBar,
++    name: 'Custom tabBar',
++  },
+   {
+     component: FourTabsRippleColor,
+     name: 'Four Tabs with ripple Color',
+@@ -157,7 +168,7 @@ const examples = [
+   },
+   {
+     component: NativeBottomTabsCustomTabBar,
+-    name: 'Native Bottom Tabs with Custom Tab Bar',
++    name: 'Native Bottom Tabs with custom tabBar',
+   },
+   {
+     component: NativeBottomTabsScreenLayout,
+@@ -167,6 +178,10 @@ const examples = [
+     component: NativeBottomTabsLazy,
+     name: 'Native Bottom Tabs with Lazy',
+   },
++  {
++    component: NativeBottomTabsTabBarHidden,
++    name: 'Native Bottom Tabs with tabBarHidden',
++  },
+   { component: NativeBottomTabs, name: 'Native Bottom Tabs' },
+   { component: JSBottomTabs, name: 'JS Bottom Tabs' },
+   {
+diff --git a/apps/example/src/Examples/CustomTabBar.tsx b/apps/example/src/Examples/CustomTabBar.tsx
+new file mode 100644
+index 0000000..94c73cb
+--- /dev/null
++++ b/apps/example/src/Examples/CustomTabBar.tsx
+@@ -0,0 +1,104 @@
++import TabView from 'react-native-bottom-tabs';
++import { useState } from 'react';
++import { Pressable, StyleSheet, Text, View } from 'react-native';
++
++const routes = [
++  {
++    key: 'article',
++    title: 'Article',
++    focusedIcon: require('../../assets/icons/article_dark.png'),
++  },
++  {
++    key: 'albums',
++    title: 'Albums',
++    focusedIcon: require('../../assets/icons/grid_dark.png'),
++  },
++  {
++    key: 'contacts',
++    title: 'Contacts',
++    focusedIcon: require('../../assets/icons/person_dark.png'),
++  },
++];
++
++export default function CustomTabBar() {
++  const [index, setIndex] = useState(0);
++
++  return (
++    <TabView
++      sidebarAdaptable
++      navigationState={{ index, routes }}
++      onIndexChange={setIndex}
++      renderScene={({ route }) => (
++        <View style={styles.screen}>
++          <Text style={styles.title}>{route.title}</Text>
++        </View>
++      )}
++      tabBar={() => (
++        <View style={styles.customTabBar}>
++          {routes.map((route, routeIndex) => {
++            const focused = routeIndex === index;
++
++            return (
++              <Pressable
++                key={route.key}
++                style={[
++                  styles.customTabBarItem,
++                  focused && styles.customTabBarItemFocused,
++                ]}
++                onPress={() => setIndex(routeIndex)}
++              >
++                <Text
++                  style={[
++                    styles.customTabBarLabel,
++                    focused && styles.customTabBarLabelFocused,
++                  ]}
++                >
++                  {route.title}
++                </Text>
++              </Pressable>
++            );
++          })}
++        </View>
++      )}
++    />
++  );
++}
++
++const styles = StyleSheet.create({
++  screen: {
++    flex: 1,
++    alignItems: 'center',
++    justifyContent: 'center',
++    padding: 24,
++  },
++  title: {
++    fontSize: 24,
++    fontWeight: '600',
++  },
++  customTabBar: {
++    flexDirection: 'row',
++    gap: 8,
++    paddingHorizontal: 12,
++    paddingTop: 10,
++    paddingBottom: 18,
++    backgroundColor: '#24292f',
++  },
++  customTabBarItem: {
++    flex: 1,
++    alignItems: 'center',
++    justifyContent: 'center',
++    minHeight: 44,
++    borderRadius: 6,
++    backgroundColor: '#3b434c',
++  },
++  customTabBarItemFocused: {
++    backgroundColor: '#ffffff',
++  },
++  customTabBarLabel: {
++    color: '#ffffff',
++    fontWeight: '600',
++  },
++  customTabBarLabelFocused: {
++    color: '#24292f',
++  },
++});
+diff --git a/apps/example/src/Examples/NativeBottomTabsTabBarHidden.tsx b/apps/example/src/Examples/NativeBottomTabsTabBarHidden.tsx
+new file mode 100644
+index 0000000..7a09a44
+--- /dev/null
++++ b/apps/example/src/Examples/NativeBottomTabsTabBarHidden.tsx
+@@ -0,0 +1,93 @@
++import { createNativeBottomTabNavigator } from '@bottom-tabs/react-navigation';
++import { useState } from 'react';
++import { Button, StyleSheet, Text, View } from 'react-native';
++
++const Tab = createNativeBottomTabNavigator();
++
++type TabBarHiddenScreenProps = {
++  title: string;
++  tabBarHidden: boolean;
++  onToggleTabBarHidden: () => void;
++};
++
++function TabBarHiddenScreen({
++  title,
++  tabBarHidden,
++  onToggleTabBarHidden,
++}: TabBarHiddenScreenProps) {
++  return (
++    <View style={styles.screen}>
++      <Text style={styles.title}>{title}</Text>
++      <Button
++        title={`${tabBarHidden ? 'Show' : 'Hide'} Tab Bar`}
++        onPress={onToggleTabBarHidden}
++      />
++    </View>
++  );
++}
++
++export default function NativeBottomTabsTabBarHidden() {
++  const [tabBarHidden, setTabBarHidden] = useState(false);
++  const toggleTabBarHidden = () => setTabBarHidden((value) => !value);
++
++  return (
++    <Tab.Navigator sidebarAdaptable tabBarHidden={tabBarHidden}>
++      <Tab.Screen
++        name="Article"
++        options={{
++          tabBarIcon: () => require('../../assets/icons/article_dark.png'),
++        }}
++      >
++        {() => (
++          <TabBarHiddenScreen
++            title="Article"
++            tabBarHidden={tabBarHidden}
++            onToggleTabBarHidden={toggleTabBarHidden}
++          />
++        )}
++      </Tab.Screen>
++      <Tab.Screen
++        name="Albums"
++        options={{
++          tabBarIcon: () => require('../../assets/icons/grid_dark.png'),
++        }}
++      >
++        {() => (
++          <TabBarHiddenScreen
++            title="Albums"
++            tabBarHidden={tabBarHidden}
++            onToggleTabBarHidden={toggleTabBarHidden}
++          />
++        )}
++      </Tab.Screen>
++      <Tab.Screen
++        name="Contacts"
++        options={{
++          tabBarIcon: () => require('../../assets/icons/person_dark.png'),
++        }}
++      >
++        {() => (
++          <TabBarHiddenScreen
++            title="Contacts"
++            tabBarHidden={tabBarHidden}
++            onToggleTabBarHidden={toggleTabBarHidden}
++          />
++        )}
++      </Tab.Screen>
++    </Tab.Navigator>
++  );
++}
++
++const styles = StyleSheet.create({
++  screen: {
++    flex: 1,
++    alignItems: 'center',
++    justifyContent: 'center',
++    gap: 16,
++    padding: 24,
++  },
++  title: {
++    fontSize: 24,
++    fontWeight: '600',
++  },
++});
+diff --git a/apps/example/src/Examples/TabBarHidden.tsx b/apps/example/src/Examples/TabBarHidden.tsx
+new file mode 100644
+index 0000000..87f5b7d
+--- /dev/null
++++ b/apps/example/src/Examples/TabBarHidden.tsx
+@@ -0,0 +1,78 @@
++import TabView from 'react-native-bottom-tabs';
++import { useState } from 'react';
++import { Button, StyleSheet, Text, View } from 'react-native';
++
++const routes = [
++  {
++    key: 'article',
++    title: 'Article',
++    focusedIcon: require('../../assets/icons/article_dark.png'),
++  },
++  {
++    key: 'albums',
++    title: 'Albums',
++    focusedIcon: require('../../assets/icons/grid_dark.png'),
++  },
++  {
++    key: 'contacts',
++    title: 'Contacts',
++    focusedIcon: require('../../assets/icons/person_dark.png'),
++  },
++];
++
++type TabBarHiddenScreenProps = {
++  title: string;
++  tabBarHidden: boolean;
++  onToggleTabBarHidden: () => void;
++};
++
++function TabBarHiddenScreen({
++  title,
++  tabBarHidden,
++  onToggleTabBarHidden,
++}: TabBarHiddenScreenProps) {
++  return (
++    <View style={styles.screen}>
++      <Text style={styles.title}>{title}</Text>
++      <Button
++        title={`${tabBarHidden ? 'Show' : 'Hide'} Tab Bar`}
++        onPress={onToggleTabBarHidden}
++      />
++    </View>
++  );
++}
++
++export default function TabBarHidden() {
++  const [index, setIndex] = useState(0);
++  const [tabBarHidden, setTabBarHidden] = useState(false);
++
++  return (
++    <TabView
++      sidebarAdaptable
++      navigationState={{ index, routes }}
++      onIndexChange={setIndex}
++      renderScene={({ route }) => (
++        <TabBarHiddenScreen
++          title={route.title}
++          tabBarHidden={tabBarHidden}
++          onToggleTabBarHidden={() => setTabBarHidden((value) => !value)}
++        />
++      )}
++      tabBarHidden={tabBarHidden}
++    />
++  );
++}
++
++const styles = StyleSheet.create({
++  screen: {
++    flex: 1,
++    alignItems: 'center',
++    justifyContent: 'center',
++    gap: 16,
++    padding: 24,
++  },
++  title: {
++    fontSize: 24,
++    fontWeight: '600',
++  },
++});
