@@ -202,6 +202,7 @@ jobs:
           EOF
           PROMPT="/argent-pr-verify --state $STATE --brief $OUT/brief.md --sha $SHA --udid $SIMULATOR_UDID --bundle-id $BUNDLE_ID --app-path $APP_PATH --src $GITHUB_WORKSPACE/target --out $OUT"
           echo "$PROMPT"
+          # --dangerously-skip-permissions already implies no prompts; --permission-prompts none is belt and braces.
           claude -p "$PROMPT" \
             --model "$MODEL" \
             --mcp-config "$RUNNER_TEMP/mcp.json" --strict-mcp-config \

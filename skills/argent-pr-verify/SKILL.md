@@ -143,7 +143,7 @@ report must say why not.
 - Haiku is the CI model. Keep the brief short and literal; it does the thinking up front.
 - The state agent is invoked as
   `claude -p "/argent-pr-verify --state before --brief … --udid … --bundle-id … --app-path … --sha … --out …"`
-  with the argent MCP server passed via `--mcp-config` and `--allowedTools "Skill,Read,Write,Bash,mcp__argent"`.
+  with the argent MCP server passed via `--mcp-config` and `--allowedTools "Skill,Read,Write,Edit,Bash,Glob,Grep,mcp__argent"`.
   See `.github/workflows/verify-pr.yml`.
 - `compose-report.sh` exits non-zero unless the verdict is FIX VERIFIED, which is what
   makes the workflow red or green.

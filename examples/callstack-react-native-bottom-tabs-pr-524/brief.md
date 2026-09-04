@@ -33,7 +33,7 @@ the decision rule says.
    after scrolling) → a screen titled "Tab Bar Hidden" appears with the text "Article", a
    button "Hide Tab Bar", and a native tab bar at the bottom with the items "Article",
    "Albums", "Contacts".
-3. Take the baseline screenshot (`step-02.png`) showing the tab bar present.
+3. Take a baseline screenshot showing the tab bar present.
 4. Tap the button "Hide Tab Bar" → the button label changes to "Show Tab Bar" (this proves
    the tap landed and JS state toggled; it happens in both states).
 5. **Decisive moment**: wait ~1 s (`await-screen-idle`), then `describe` and take a

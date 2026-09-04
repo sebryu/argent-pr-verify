@@ -33,8 +33,12 @@ if [ -n "$PR_JSON" ] && [ -f "$PR_JSON" ]; then
   prline=$(jq -r '"PR: \(.url)  \nIssue(s): \([.issues[].url] | join(", "))  \nbefore = `\(.before[:10])`, after = `\(.after[:10])`"' "$PR_JSON")
 fi
 
+cell() { # $1 = report.json, $2 = jq path; markdown-table-safe scalar
+  jq -r "$2"' // "" | tostring | gsub("\\|"; "\\|") | gsub("\r?\n"; " ")' "$1"
+}
+
 steps_table() { # $1 = report.json
-  jq -r '.steps[] | "| \(.n) | \(.action) | \(.observed) | \(if .screenshot then "![step \(.n)](\(.screenshot))" else "" end) |"' "$1"
+  jq -r '.steps[] | "| \(.n) | \(.action // "" | tostring | gsub("\\|"; "\\|") | gsub("\r?\n"; " ")) | \(.observed // "" | tostring | gsub("\\|"; "\\|") | gsub("\r?\n"; " ")) | \(if .screenshot then "![step \(.n)](\(.screenshot))" else "" end) |"' "$1"
 }
 
 {
@@ -46,7 +50,7 @@ steps_table() { # $1 = report.json
   echo "| verdict | \`$bv\` | \`$av\` |"
   echo "| confidence | $(jq -r .confidence "$B") | $(jq -r .confidence "$A") |"
   echo "| commit | \`$(jq -r '.sha[:10]' "$B")\` | \`$(jq -r '.sha[:10]' "$A")\` |"
-  echo "| summary | $(jq -r .summary "$B") | $(jq -r .summary "$A") |"
+  echo "| summary | $(cell "$B" .summary) | $(cell "$A" .summary) |"
   echo "| recording | [$(jq -r .evidence.recording "$B")]($(jq -r .evidence.recording "$B")) | [$(jq -r .evidence.recording "$A")]($(jq -r .evidence.recording "$A")) |"
   echo
   for s in before after; do

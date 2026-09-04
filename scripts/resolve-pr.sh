@@ -37,9 +37,10 @@ ISSUE_NUMBERS=$(
       [ -z "$i" ] && continue
       if [[ "$i" =~ /issues/([0-9]+) ]]; then echo "${BASH_REMATCH[1]}"; else echo "$i"; fi
     done
+    # "Fixes #12", "closes: #12, #13", "Resolves https://github.com/<repo>/issues/12"
     jq -r '.body' <<<"$PR_JSON" \
-      | grep -oiE '(fix(e[sd])?|close[sd]?|resolve[sd]?)[[:space:]:]*(https://github\.com/[^/]+/[^/]+/issues/)?#?[0-9]+' \
-      | grep -oE '[0-9]+$' || true
+      | grep -oiE "(^|[^[:alnum:]])(fix(e[sd])?|close[sd]?|resolve[sd]?)[[:space:]:]*((https://github\.com/${REPO}/issues/|#)[0-9]+([[:space:]]*,[[:space:]]*(https://github\.com/${REPO}/issues/|#)[0-9]+)*)" \
+      | grep -oE '[0-9]+' || true
     jq -r '.body' <<<"$PR_JSON" \
       | grep -oE "https://github\.com/${REPO}/issues/[0-9]+" | grep -oE '[0-9]+$' || true
   } | awk 'NF && !seen[$0]++'
