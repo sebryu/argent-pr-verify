@@ -1,0 +1,59 @@
+name: Start Argent tool-server
+description: >-
+  Installs the Argent CLI and starts a tool-server for later steps. Exports
+  ARGENT_SERVER_LOG so the caller can collect the log on failure.
+  Adapted from software-mansion/react-native-gesture-handler
+  (.github/actions/argent-server/action.yml).
+
+inputs:
+  port:
+    description: Port to serve the tool-server on.
+    required: false
+    default: '3001'
+  simulator-server-log:
+    description: SIMSERVER_LOG level for the simulator-server backend (e.g. debug). Unset when empty.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Install Argent
+      shell: bash
+      run: npx @swmansion/argent init --yes
+
+    # Foreground `argent server start` (not --detach) so a slow first start on a cold
+    # runner (it downloads the simulator-server binary) is not killed by a fixed timeout.
+    - name: Start tool-server
+      shell: bash
+      env:
+        TOOL_SERVER_PORT: ${{ inputs.port }}
+        SIMULATOR_SERVER_LOG: ${{ inputs.simulator-server-log }}
+      run: |
+        LOG="$RUNNER_TEMP/argent-server.log"
+        echo "ARGENT_SERVER_LOG=$LOG" >> "$GITHUB_ENV"
+        echo "ARGENT_TOOL_SERVER_PORT=$TOOL_SERVER_PORT" >> "$GITHUB_ENV"
+
+        if [ -n "$SIMULATOR_SERVER_LOG" ]; then
+          export SIMSERVER_LOG="$SIMULATOR_SERVER_LOG"
+        fi
+
+        nohup argent server start --no-auth --port "$TOOL_SERVER_PORT" > "$LOG" 2>&1 &
+        SERVER_PID=$!
+
+        echo "Waiting for Argent tool-server on :$TOOL_SERVER_PORT..."
+        for _ in $(seq 1 90); do
+          if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+            echo "Argent tool-server exited during startup" >&2
+            cat "$LOG" >&2
+            exit 1
+          fi
+          if curl -fsS "http://127.0.0.1:$TOOL_SERVER_PORT/tools" >/dev/null 2>&1; then
+            echo "tool-server is ready"
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "Argent tool-server failed to become ready in time" >&2
+        cat "$LOG" >&2
+        exit 1

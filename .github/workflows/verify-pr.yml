@@ -1,0 +1,266 @@
+name: Verify PR fix (before/after with Argent)
+
+# Reproduces the issue linked from a pull request on an iOS simulator at the PR's base
+# commit and at its head, driven by Claude Haiku running the argent-pr-verify skill, and
+# publishes before/after screen recordings, screenshots and a verdict.
+#
+# Reusable (workflow_call) so a repository that holds the CLAUDE_CODE_OAUTH_TOKEN secret
+# can call it with `secrets: inherit`; also dispatchable directly from this repo.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_url:
+        description: Pull request URL to verify.
+        required: true
+        type: string
+      issue:
+        description: Linked issue number or URL when the PR body does not reference it.
+        required: false
+        type: string
+        default: ''
+      example_dir:
+        description: Path in this repo holding brief.md, build-ios.sh and optionally repro.patch for the target.
+        required: true
+        type: string
+      xcode_version:
+        description: Xcode version on the macos-26 runner (must match the simulator runtime).
+        required: false
+        type: string
+        default: '26.6'
+      simulator:
+        description: Simulator device name to create/boot.
+        required: false
+        type: string
+        default: 'iPhone 17 Pro'
+      model:
+        description: Claude model that runs the state agents on the runner.
+        required: false
+        type: string
+        default: 'claude-haiku-4-5-20251001'
+  workflow_call:
+    inputs:
+      pr_url: { required: true, type: string }
+      issue: { required: false, type: string, default: '' }
+      example_dir: { required: true, type: string }
+      xcode_version: { required: false, type: string, default: '26.6' }
+      simulator: { required: false, type: string, default: 'iPhone 17 Pro' }
+      model: { required: false, type: string, default: 'claude-haiku-4-5-20251001' }
+      tools_ref:
+        description: Git ref of sebryu/argent-pr-verify to run the tools from.
+        required: false
+        type: string
+        default: main
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  TOOLS_REPO: sebryu/argent-pr-verify
+  TOOLS_REF: ${{ inputs.tools_ref || github.ref }}
+
+jobs:
+  resolve:
+    name: Resolve PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      repo: ${{ steps.pr.outputs.repo }}
+      number: ${{ steps.pr.outputs.number }}
+      before: ${{ steps.pr.outputs.before }}
+      after: ${{ steps.pr.outputs.after }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TOOLS_REPO }}
+          ref: ${{ env.TOOLS_REF }}
+
+      - name: Resolve PR into pr.json
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ inputs.pr_url }}
+          ISSUE: ${{ inputs.issue }}
+        run: |
+          mkdir -p out
+          if [ -n "$ISSUE" ]; then
+            scripts/resolve-pr.sh "$PR_URL" --issue "$ISSUE" > out/pr.json
+          else
+            scripts/resolve-pr.sh "$PR_URL" > out/pr.json
+          fi
+          jq '{repo,number,before,after,files,issues:[.issues[]|{number,title,url}]}' out/pr.json
+          {
+            echo "repo=$(jq -r .repo out/pr.json)"
+            echo "number=$(jq -r .number out/pr.json)"
+            echo "before=$(jq -r .before out/pr.json)"
+            echo "after=$(jq -r .after out/pr.json)"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr-json
+          path: out/pr.json
+
+  verify:
+    name: ${{ matrix.state }}
+    needs: resolve
+    runs-on: macos-26
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        state: [before, after]
+    env:
+      STATE: ${{ matrix.state }}
+      SHA: ${{ matrix.state == 'before' && needs.resolve.outputs.before || needs.resolve.outputs.after }}
+      TARGET_REPO: ${{ needs.resolve.outputs.repo }}
+      EXAMPLE_DIR: ${{ inputs.example_dir }}
+    steps:
+      - name: Checkout tools (skill + scripts)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TOOLS_REPO }}
+          ref: ${{ env.TOOLS_REF }}
+
+      - name: Select Xcode
+        env:
+          XCODE_VERSION: ${{ inputs.xcode_version }}
+        run: |
+          XCODE_APP="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [ ! -d "$XCODE_APP" ]; then
+            echo "Xcode ${XCODE_VERSION} is not installed on this runner. Available:" >&2
+            ls -d /Applications/Xcode*.app >&2
+            exit 1
+          fi
+          echo "DEVELOPER_DIR=$XCODE_APP/Contents/Developer" >> "$GITHUB_ENV"
+          DEVELOPER_DIR="$XCODE_APP/Contents/Developer" xcodebuild -version
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Check out target repository at ${{ matrix.state }} commit
+        run: |
+          git clone --quiet --no-checkout "https://github.com/$TARGET_REPO.git" target
+          git -C target fetch --quiet --depth 1 origin "$SHA"
+          git -C target checkout --quiet --detach "$SHA"
+          if [ -f "$EXAMPLE_DIR/repro.patch" ]; then
+            git -C target apply --check "$GITHUB_WORKSPACE/$EXAMPLE_DIR/repro.patch"
+            git -C target apply "$GITHUB_WORKSPACE/$EXAMPLE_DIR/repro.patch"
+            echo "applied repro patch"
+          fi
+          git -C target log -1 --oneline
+
+      - name: Build example app (Release, simulator)
+        id: build
+        run: |
+          APP_PATH=$(bash "$EXAMPLE_DIR/build-ios.sh" "$GITHUB_WORKSPACE/target" | tail -1)
+          [ -d "$APP_PATH" ] || { echo "build script did not print an .app path (got: $APP_PATH)" >&2; exit 1; }
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+          echo "BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP_PATH/Info.plist")" >> "$GITHUB_ENV"
+
+      - name: Boot simulator
+        env:
+          SIM_NAME: ${{ inputs.simulator }}
+        run: |
+          UDID=$(scripts/simulator.sh ensure "PRVerify-$STATE" "$SIM_NAME")
+          scripts/simulator.sh quiet-keyboard "$UDID"
+          echo "SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
+
+      - name: Install app on simulator
+        run: xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
+
+      - name: Install Argent and start the tool-server
+        uses: ./.github/actions/argent-server
+
+      - name: Install Claude Code
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude --version
+
+      - name: Run the ${{ matrix.state }} state agent (${{ inputs.model }})
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ARGENT_TOOLS_URL: http://127.0.0.1:${{ env.ARGENT_TOOL_SERVER_PORT }}
+          MODEL: ${{ inputs.model }}
+        run: |
+          set -o pipefail
+          OUT="$GITHUB_WORKSPACE/out"; mkdir -p "$OUT/$STATE"
+          cp "$EXAMPLE_DIR/brief.md" "$OUT/brief.md"
+          cat > "$RUNNER_TEMP/mcp.json" <<EOF
+          {"mcpServers":{"argent":{"type":"stdio","command":"argent","args":["mcp"],"env":{"ARGENT_TOOLS_URL":"$ARGENT_TOOLS_URL"}}}}
+          EOF
+          PROMPT="/argent-pr-verify --state $STATE --brief $OUT/brief.md --sha $SHA --udid $SIMULATOR_UDID --bundle-id $BUNDLE_ID --app-path $APP_PATH --src $GITHUB_WORKSPACE/target --out $OUT"
+          echo "$PROMPT"
+          claude -p "$PROMPT" \
+            --model "$MODEL" \
+            --mcp-config "$RUNNER_TEMP/mcp.json" --strict-mcp-config \
+            --allowedTools "Skill,Read,Write,Edit,Bash,Glob,Grep,mcp__argent" \
+            --dangerously-skip-permissions \
+            --max-turns 120 \
+            --output-format json --verbose \
+            | tee "$OUT/$STATE/claude-output.json" | jq -r 'select(.type=="result") | "turns=\(.num_turns) cost_usd=\(.total_cost_usd) is_error=\(.is_error)\n\(.result // "")"' || true
+          test -f "$OUT/$STATE/report.json" || { echo "state agent did not write report.json" >&2; exit 1; }
+          jq '{state,verdict,confidence,summary}' "$OUT/$STATE/report.json"
+
+      - name: Stop any lingering recording
+        if: ${{ always() }}
+        run: argent run screen-recording-stop --udid "$SIMULATOR_UDID" --json >/dev/null 2>&1 || true
+        env:
+          ARGENT_TOOLS_URL: http://127.0.0.1:${{ env.ARGENT_TOOL_SERVER_PORT }}
+
+      - name: Collect logs
+        if: ${{ always() }}
+        run: |
+          mkdir -p "out/$STATE/logs"
+          cp "${ARGENT_SERVER_LOG:-/nonexistent}" "out/$STATE/logs/" 2>/dev/null || true
+          ls -lR "out/$STATE" || true
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: evidence-${{ matrix.state }}
+          path: out/${{ matrix.state }}/
+          if-no-files-found: warn
+
+  report:
+    name: Before/after report
+    needs: [resolve, verify]
+    if: ${{ always() && needs.resolve.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.TOOLS_REPO }}
+          ref: ${{ env.TOOLS_REF }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+      - name: Compose report
+        run: |
+          mkdir -p out/before out/after
+          cp out/pr-json/pr.json out/pr.json
+          mv out/evidence-before/* out/before/ 2>/dev/null || true
+          mv out/evidence-after/* out/after/ 2>/dev/null || true
+          for s in before after; do
+            [ -f out/$s/report.json ] || jq -n --arg s "$s" '{state:$s,sha:"",app:{},verdict:"inconclusive",confidence:0,summary:"state agent produced no report (job failed)",steps:[],evidence:{recording:"",screenshots:[],extra:[]}}' > out/$s/report.json
+          done
+          set +e
+          scripts/compose-report.sh out --pr-json out/pr.json
+          rc=$?
+          cat out/REPORT.md >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() }}
+        with:
+          name: before-after-report
+          path: |
+            out/REPORT.md
+            out/verdict.json
+            out/pr.json
+            out/before/
+            out/after/
