@@ -1,0 +1,47 @@
+{
+  "state": "after",
+  "sha": "54283150c216ccd31566d3f07d48f70f5faac44a",
+  "app": { "bundleId": "bottomtabs.example", "udid": "4BC3882D-85AD-4A5B-AC82-F515553A8713" },
+  "verdict": "bug_absent",
+  "confidence": 0.98,
+  "summary": "After tapping 'Hide Tab Bar' on the Tab Bar Hidden screen, the native tab bar fully disappears: describe shows no Tab Bar group and no Albums/Contacts items, and the screenshot shows only 'Article' and the 'Show Tab Bar' button on an otherwise empty screen. Tapping 'Show Tab Bar' restores the tab bar (Article/Albums/Contacts) as a control check.",
+  "steps": [
+    {
+      "n": 0,
+      "action": "Launch bottomtabs.example and wait for idle",
+      "observed": "Home list 'BottomTabs Example' rendered with rows including Three Tabs, Four Tabs, Lazy Tabs, Tab Bar Hidden",
+      "screenshot": "after/step-00.png"
+    },
+    {
+      "n": 1,
+      "action": "Tap the 'Tab Bar Hidden' row (visible without scrolling at normalized y=0.544)",
+      "observed": "Navigated to the 'Tab Bar Hidden' screen showing 'Article' text, a 'Hide Tab Bar' button, and a native Tab Bar at the bottom with Article/Albums/Contacts",
+      "screenshot": "after/step-02.png"
+    },
+    {
+      "n": 2,
+      "action": "Tap 'Hide Tab Bar'",
+      "observed": "Button label changed to 'Show Tab Bar' (await-ui-element confirmed), proving the tap landed and JS state toggled",
+      "screenshot": null
+    },
+    {
+      "n": 3,
+      "action": "Decisive moment: await-screen-idle (~1s), then describe and full-resolution screenshot",
+      "observed": "describe lists only BackButton, 'Tab Bar Hidden' title, 'Article' text, and 'Show Tab Bar' button — no 'Tab Bar' group, no 'Albums', no 'Contacts' anywhere. Screenshot confirms an empty area below 'Show Tab Bar' with no tab bar visible.",
+      "screenshot": "after/decisive.png"
+    },
+    {
+      "n": 4,
+      "action": "Tap 'Show Tab Bar' (control step)",
+      "observed": "Tab bar reappeared with Article/Albums/Contacts and button label reverted to 'Hide Tab Bar'",
+      "screenshot": "after/step-04.png"
+    }
+  ],
+  "evidence": {
+    "recording": "after/recording.mp4",
+    "screenshots": ["after/step-00.png", "after/step-02.png", "after/decisive.png", "after/step-04.png"],
+    "extra": ["after/decisive-describe.txt", "after/build.log"]
+  },
+  "startedAt": "2026-09-05T23:19:00Z",
+  "finishedAt": "2026-09-05T23:28:15Z"
+}

@@ -1,0 +1,5 @@
+{
+  "verdict": "FIX VERIFIED",
+  "before": "bug_present",
+  "after": "bug_absent"
+}

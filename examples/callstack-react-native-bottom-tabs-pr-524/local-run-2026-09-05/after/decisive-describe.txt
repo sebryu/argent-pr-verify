@@ -1,0 +1,4 @@
+{
+  "description": "Source: ax-service\nMode: flat\nCoordinates are normalized [0,1] fractions of the screen (x, y, width, height), not pixels.\nPass them straight to gesture-tap / gesture-swipe / gesture-pinch, which expect this same space.\nTo tap an element, use its centre: tap_x = frame.x + frame.width / 2, tap_y = frame.y + frame.height / 2.\n\nROOT  AXGroup (0.000, 0.000, 1.000, 1.000)\n\n  AXButton \"BottomTabs Example\" id=\"BackButton\"  (0.040, 0.071, 0.535, 0.050)\n  AXGroup \"Tab Bar Hidden\"  (0.604, 0.084, 0.302, 0.024)\n  AXStaticText \"Article\"  (0.410, 0.519, 0.178, 0.033)\n  AXButton \"Show Tab Bar\"  (0.343, 0.571, 0.313, 0.043)",
+  "source": "ax-service"
+}

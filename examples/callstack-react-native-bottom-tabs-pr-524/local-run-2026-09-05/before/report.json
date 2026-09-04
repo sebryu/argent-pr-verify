@@ -1,0 +1,53 @@
+{
+  "state": "before",
+  "sha": "6797d321ad66f45bee3c6e64720ae983166661ef",
+  "app": { "bundleId": "bottomtabs.example", "udid": "1F8B79AD-A60A-4932-8A23-F6B9EB461835" },
+  "verdict": "bug_present",
+  "confidence": 0.98,
+  "summary": "After tapping 'Hide Tab Bar' on the 'Tab Bar Hidden' example screen, the button label changed to 'Show Tab Bar' (JS state toggled) but the native tab bar (Article, Albums, Contacts) remained on screen at the bottom of the view (y ~0.905-1.0 in describe output). tabBarHidden prop had no visible effect, matching the reported bug.",
+  "steps": [
+    {
+      "n": 1,
+      "action": "Launch bottomtabs.example",
+      "observed": "Home list 'BottomTabs Example' shown with rows including 'Tab Bar Hidden' visible without scrolling",
+      "screenshot": "before/step-00.png"
+    },
+    {
+      "n": 2,
+      "action": "Tap row 'Tab Bar Hidden'",
+      "observed": "Screen titled 'Tab Bar Hidden' appeared with text 'Article', button 'Hide Tab Bar', and a native tab bar at the bottom with items Article, Albums, Contacts",
+      "screenshot": "before/step-01.png"
+    },
+    {
+      "n": 3,
+      "action": "Baseline screenshot before toggling",
+      "observed": "Tab bar present with Article, Albums, Contacts",
+      "screenshot": "before/step-02.png"
+    },
+    {
+      "n": 4,
+      "action": "Tap button 'Hide Tab Bar'",
+      "observed": "Button label changed to 'Show Tab Bar', confirming the tap landed and JS state toggled",
+      "screenshot": "before/decisive.png"
+    },
+    {
+      "n": 5,
+      "action": "Decisive moment: await-screen-idle then describe + full-res screenshot",
+      "observed": "Native tab bar still visible at bottom (AXGroup 'Tab Bar' at y=0.905, height=0.095) with buttons 'Article', 'Albums', 'Contacts' all present; button reads 'Show Tab Bar'. Screenshot confirms tab bar pill visually present. Bug is present: tabBarHidden prop is ignored.",
+      "screenshot": "before/decisive.png"
+    },
+    {
+      "n": 6,
+      "action": "Tap 'Show Tab Bar' (control step)",
+      "observed": "Button label toggled back to 'Hide Tab Bar'; tab bar remains visible (as expected in both states, does not affect verdict)",
+      "screenshot": "before/step-03.png"
+    }
+  ],
+  "evidence": {
+    "recording": "before/recording.mp4",
+    "screenshots": ["before/step-00.png", "before/step-01.png", "before/step-02.png", "before/decisive.png", "before/step-03.png"],
+    "extra": ["before/decisive-describe.txt", "before/build.log"]
+  },
+  "startedAt": "2026-09-05T01:11:00Z",
+  "finishedAt": "2026-09-05T01:28:10Z"
+}
