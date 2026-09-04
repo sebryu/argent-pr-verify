@@ -188,6 +188,12 @@ jobs:
           npm install -g @anthropic-ai/claude-code
           claude --version
 
+      - name: Start screen recording (Argent)
+        env:
+          ARGENT_TOOLS_URL: http://127.0.0.1:${{ env.ARGENT_TOOL_SERVER_PORT }}
+        run: |
+          argent run screen-recording-start --udid "$SIMULATOR_UDID" --timeLimitSeconds 600 --json
+
       - name: Run the ${{ matrix.state }} state agent (${{ inputs.model }})
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -200,7 +206,7 @@ jobs:
           cat > "$RUNNER_TEMP/mcp.json" <<EOF
           {"mcpServers":{"argent":{"type":"stdio","command":"argent","args":["mcp"],"env":{"ARGENT_TOOLS_URL":"$ARGENT_TOOLS_URL"}}}}
           EOF
-          PROMPT="/argent-pr-verify --state $STATE --brief $OUT/brief.md --sha $SHA --udid $SIMULATOR_UDID --bundle-id $BUNDLE_ID --app-path $APP_PATH --src $GITHUB_WORKSPACE/target --out $OUT"
+          PROMPT="/argent-pr-verify --state $STATE --brief $OUT/brief.md --sha $SHA --udid $SIMULATOR_UDID --bundle-id $BUNDLE_ID --app-path $APP_PATH --src $GITHUB_WORKSPACE/target --out $OUT --recording external"
           echo "$PROMPT"
           # --dangerously-skip-permissions already implies no prompts; --permission-prompts none is belt and braces.
           claude -p "$PROMPT" \
@@ -210,15 +216,29 @@ jobs:
             --dangerously-skip-permissions --permission-prompts none \
             --max-turns 120 --max-budget-usd 5 \
             --output-format json --verbose \
-            | tee "$OUT/$STATE/claude-output.json" | jq -r 'select(.type=="result") | "turns=\(.num_turns) cost_usd=\(.total_cost_usd) is_error=\(.is_error)\n\(.result // "")"' || true
+            | tee "$OUT/$STATE/claude-output.json" \
+            | jq -r 'if type=="array" then .[] else . end | select(.type=="result") | "turns=\(.num_turns) cost_usd=\(.total_cost_usd) is_error=\(.is_error)\n\(.result // "")"' || true
           test -f "$OUT/$STATE/report.json" || { echo "state agent did not write report.json" >&2; exit 1; }
-          jq '{state,verdict,confidence,summary}' "$OUT/$STATE/report.json"
 
-      - name: Stop any lingering recording
+      - name: Stop screen recording and normalize the report
         if: ${{ always() }}
-        run: argent run screen-recording-stop --udid "$SIMULATOR_UDID" --json >/dev/null 2>&1 || true
         env:
           ARGENT_TOOLS_URL: http://127.0.0.1:${{ env.ARGENT_TOOL_SERVER_PORT }}
+        run: |
+          OUT="$GITHUB_WORKSPACE/out"; mkdir -p "$OUT/$STATE"
+          if VIDEO=$(argent run screen-recording-stop --udid "$SIMULATOR_UDID" --json 2>/dev/null | jq -r '.video // empty'); then
+            if [ -n "$VIDEO" ] && [ -f "$VIDEO" ]; then
+              cp "$VIDEO" "$OUT/$STATE/recording.mp4"
+              echo "recording saved: $(du -h "$OUT/$STATE/recording.mp4" | cut -f1)"
+            else
+              echo "screen-recording-stop returned no video file" >&2
+            fi
+          fi
+          if [ -f "$OUT/$STATE/report.json" ]; then
+            scripts/normalize-report.sh "$OUT/$STATE/report.json" "$STATE" "$SHA"
+            jq '{state,verdict,confidence,summary}' "$OUT/$STATE/report.json"
+          fi
+          test -f "$OUT/$STATE/recording.mp4" || { echo "no recording.mp4 for $STATE" >&2; exit 1; }
 
       - name: Collect logs
         if: ${{ always() }}

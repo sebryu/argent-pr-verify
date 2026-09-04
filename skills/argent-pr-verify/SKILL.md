@@ -24,7 +24,7 @@ symlink into it. Call it `$ROOT`.
 
 ```
 /argent-pr-verify <pr-url> [--issue <n|url>]... [--app-dir <dir-in-repo>] [--repro-patch <file>] [--out <dir>] [--keep-simulators]
-/argent-pr-verify --state before|after --brief <brief.md> --sha <sha> --udid <UDID> --bundle-id <id> [--app-path <App.app>] [--src <checkout>] --out <dir>
+/argent-pr-verify --state before|after --brief <brief.md> --sha <sha> --udid <UDID> --bundle-id <id> [--app-path <App.app>] [--src <checkout>] --out <dir> [--recording external]
 ```
 
 The first form is **orchestrator mode** (local). The second is **single-state mode**: one
@@ -115,7 +115,9 @@ and `argent run <tool>` take the same arguments.
    Take `step-00.png`.
 4. **Start recording**: `screen-recording-start` with `timeLimitSeconds` about 2× the
    expected duration (300 is a safe default). From now on every exit path must call
-   `screen-recording-stop`.
+   `screen-recording-stop`. **With `--recording external` skip this step and step 7**: the
+   harness already records the device and will place `recording.mp4` itself; starting a
+   second recording on the same device fails.
 5. **Follow the brief's repro steps in order.** For each step: `describe` → act on the
    element by its visible text or id (compute the tap centre from the normalized frame) →
    `await-ui-element` on what the brief says should appear → `screenshot` to
@@ -127,8 +129,19 @@ and `argent run <tool>` take the same arguments.
    `describe` dump saved to `$OUT/$STATE/decisive-describe.txt` so the verdict is backed by
    element frames, not only pixels.
 7. **Stop recording** and copy the returned `video` file to `$OUT/$STATE/recording.mp4`.
-8. **Write `report.json`** (schema in `references/report-schema.md`) and `notes.md`.
-   The verdict is about the bug's visibility only: `bug_present`, `bug_absent`, or
+8. **Write `$OUT/$STATE/report.json`** with exactly these keys (full schema in
+   `references/report-schema.md`) and a short `notes.md`:
+
+   ```json
+   {"state":"before","sha":"<sha>","app":{"bundleId":"…","udid":"…"},
+    "verdict":"bug_present|bug_absent|inconclusive","confidence":0.0-1.0,"summary":"one sentence",
+    "steps":[{"n":1,"action":"…","observed":"…","screenshot":"before/step-01.png"}],
+    "evidence":{"recording":"before/recording.mp4","screenshots":["before/step-01.png"],"extra":[]},
+    "startedAt":"ISO-8601","finishedAt":"ISO-8601"}
+   ```
+
+   Screenshot paths are relative to `$OUT` (so they start with the state name). The
+   verdict is about the bug's visibility only: `bug_present`, `bug_absent`, or
    `inconclusive` with the reason. Do not say "pass" or "fail"; do not compare with the
    other state; do not soften a clear observation.
 
@@ -141,10 +154,14 @@ report must say why not.
 - The workflow installs Argent and starts `argent server start --no-auth --port 3001`;
   set `ARGENT_TOOLS_URL=http://127.0.0.1:3001` for both the MCP server and `argent run`.
 - Haiku is the CI model. Keep the brief short and literal; it does the thinking up front.
+- The workflow starts an Argent screen recording before the agent runs and stops it after,
+  so the agent is invoked with `--recording external` and must not record itself.
 - The state agent is invoked as
-  `claude -p "/argent-pr-verify --state before --brief … --udid … --bundle-id … --app-path … --sha … --out …"`
+  `claude -p "/argent-pr-verify --state before --brief … --udid … --bundle-id … --app-path … --sha … --out … --recording external"`
   with the argent MCP server passed via `--mcp-config` and `--allowedTools "Skill,Read,Write,Edit,Bash,Glob,Grep,mcp__argent"`.
   See `.github/workflows/verify-pr.yml`.
+- `scripts/normalize-report.sh` fills in `state`, `sha`, `confidence`, `steps` and the
+  recording path if the agent left them out; it never changes a verdict.
 - `compose-report.sh` exits non-zero unless the verdict is FIX VERIFIED, which is what
   makes the workflow red or green.
 

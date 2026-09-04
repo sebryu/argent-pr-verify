@@ -22,6 +22,7 @@ per state, and the workflow publishes the recordings as artifacts.
 | `scripts/resolve-pr.sh` | PR URL → `pr.json` (SHAs, files, linked issues) |
 | `scripts/prepare-worktrees.sh` | before/after worktrees, optional repro patch |
 | `scripts/simulator.sh` | dedicated simulators (ensure / delete / quiet-keyboard) |
+| `scripts/normalize-report.sh` | fill in fields a state agent left out of `report.json` |
 | `scripts/compose-report.sh` | two `report.json` → `REPORT.md` + verdict |
 | `.github/workflows/verify-pr.yml` | reusable workflow (`workflow_call` + `workflow_dispatch`) |
 | `.github/actions/argent-server` | install Argent + start the tool-server (from react-native-gesture-handler) |
