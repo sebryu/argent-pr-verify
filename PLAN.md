@@ -85,5 +85,8 @@ the job summary, fail if the verdict is not FIX VERIFIED).
 2. ✅ Skill + scripts drafted; sonnet review in progress.
 3. ✅ Local before/after run: FIX VERIFIED (before=bug_present, after=bug_absent);
    evidence archived in `examples/callstack-react-native-bottom-tabs-pr-524/local-run-2026-09-05/`.
-4. ⏳ Workflow pushed; caller dispatched from `claude-session-share`
-   (`.github/workflows/argent-pr-verify.yml`); waiting for a green run.
+4. ✅ Green CI run with before/after recordings — 2026-09-05,
+   https://github.com/sebryu/claude-session-share/actions/runs/33931608580
+   (Haiku state agents on macos-26; verdict FIX VERIFIED; artifact `before-after-report`).
+   Runs 1–2 failed only on harness issues (sparse report shape; no ffmpeg on the runner),
+   both fixed.

@@ -55,3 +55,12 @@ jobs:
 `example_dir` points at a directory in this repo with the brief and the build script for
 that target (see `examples/`). The `report` job writes the verdict to the job summary and
 fails unless the verdict is **FIX VERIFIED**.
+
+Reference run (react-native-bottom-tabs#524, Haiku on macos-26, FIX VERIFIED with
+before/after recordings in the `before-after-report` artifact):
+https://github.com/sebryu/claude-session-share/actions/runs/33931608580
+
+Gotchas learned on the runner: the image has no ffmpeg, so the workflow records with
+`xcrun simctl io recordVideo` instead of Argent's recorder; `claude -p --output-format json
+--verbose` prints an array, not one object; Haiku may leave fields out of `report.json`, so
+the workflow normalizes it before composing.
