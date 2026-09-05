@@ -154,8 +154,9 @@ report must say why not.
 - The workflow installs Argent and starts `argent server start --no-auth --port 3001`;
   set `ARGENT_TOOLS_URL=http://127.0.0.1:3001` for both the MCP server and `argent run`.
 - Haiku is the CI model. Keep the brief short and literal; it does the thinking up front.
-- The workflow starts an Argent screen recording before the agent runs and stops it after,
-  so the agent is invoked with `--recording external` and must not record itself.
+- The workflow records the simulator itself (`xcrun simctl io recordVideo`, since the runner
+  image has no ffmpeg for Argent's recorder) before the agent runs and stops it after, so the
+  agent is invoked with `--recording external` and must not record itself.
 - The state agent is invoked as
   `claude -p "/argent-pr-verify --state before --brief … --udid … --bundle-id … --app-path … --sha … --out … --recording external"`
   with the argent MCP server passed via `--mcp-config` and `--allowedTools "Skill,Read,Write,Edit,Bash,Glob,Grep,mcp__argent"`.
