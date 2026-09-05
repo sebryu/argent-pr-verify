@@ -188,11 +188,20 @@ jobs:
           npm install -g @anthropic-ai/claude-code
           claude --version
 
-      - name: Start screen recording (Argent)
-        env:
-          ARGENT_TOOLS_URL: http://127.0.0.1:${{ env.ARGENT_TOOL_SERVER_PORT }}
+      # simctl rather than Argent's recorder: the runner image has no ffmpeg, and this is
+      # the recipe react-native-gesture-handler's ios-e2e.yml uses. h264 so browsers can play it.
+      - name: Start screen recording (simctl)
         run: |
-          argent run screen-recording-start --udid "$SIMULATOR_UDID" --timeLimitSeconds 600 --json
+          mkdir -p "$GITHUB_WORKSPACE/out/$STATE"
+          nohup xcrun simctl io "$SIMULATOR_UDID" recordVideo --codec h264 --force \
+            "$GITHUB_WORKSPACE/out/$STATE/recording.mp4" > "$RUNNER_TEMP/recordvideo.log" 2>&1 &
+          echo "RECORDING_PID=$!" >> "$GITHUB_ENV"
+          # simctl only records from the first processed frame, which it announces.
+          for _ in $(seq 1 30); do
+            if grep -q "Recording started" "$RUNNER_TEMP/recordvideo.log" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/recordvideo.log"
 
       - name: Run the ${{ matrix.state }} state agent (${{ inputs.model }})
         env:
@@ -222,23 +231,24 @@ jobs:
 
       - name: Stop screen recording and normalize the report
         if: ${{ always() }}
-        env:
-          ARGENT_TOOLS_URL: http://127.0.0.1:${{ env.ARGENT_TOOL_SERVER_PORT }}
         run: |
           OUT="$GITHUB_WORKSPACE/out"; mkdir -p "$OUT/$STATE"
-          if VIDEO=$(argent run screen-recording-stop --udid "$SIMULATOR_UDID" --json 2>/dev/null | jq -r '.video // empty'); then
-            if [ -n "$VIDEO" ] && [ -f "$VIDEO" ]; then
-              cp "$VIDEO" "$OUT/$STATE/recording.mp4"
-              echo "recording saved: $(du -h "$OUT/$STATE/recording.mp4" | cut -f1)"
-            else
-              echo "screen-recording-stop returned no video file" >&2
-            fi
+          # SIGINT is what makes recordVideo write the mp4 trailer; killed any other way the file is unplayable.
+          kill -INT "${RECORDING_PID:-}" 2>/dev/null || true
+          for _ in $(seq 1 20); do
+            kill -0 "${RECORDING_PID:-}" 2>/dev/null || break
+            sleep 1
+          done
+          if [ -s "$OUT/$STATE/recording.mp4" ]; then
+            echo "recording saved: $(du -h "$OUT/$STATE/recording.mp4" | cut -f1)"
+          else
+            echo "no recording.mp4 for $STATE" >&2; cat "$RUNNER_TEMP/recordvideo.log" 2>/dev/null >&2 || true
           fi
           if [ -f "$OUT/$STATE/report.json" ]; then
             scripts/normalize-report.sh "$OUT/$STATE/report.json" "$STATE" "$SHA"
             jq '{state,verdict,confidence,summary}' "$OUT/$STATE/report.json"
           fi
-          test -f "$OUT/$STATE/recording.mp4" || { echo "no recording.mp4 for $STATE" >&2; exit 1; }
+          test -s "$OUT/$STATE/recording.mp4"
 
       - name: Collect logs
         if: ${{ always() }}
